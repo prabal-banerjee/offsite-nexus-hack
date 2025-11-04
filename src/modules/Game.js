@@ -39,6 +39,7 @@ class Game {
     this.waveEnding = false;
     this.quackingSoundId = null;
     this.levels = levels.normal;
+    this.playerNameVal = '';
     return this;
   }
 
@@ -259,9 +260,98 @@ class Game {
     this.addMuteLink();
     this.addFullscreenLink();
     this.bindEvents();
-    this.startLevel();
+    this.showNameOverlay();
     this.animate();
 
+  }
+
+  get playerName() {
+    return this.playerNameVal || '';
+  }
+
+  set playerName(val) {
+    this.playerNameVal = val || '';
+    if (this.stage && this.stage.hud) {
+      if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'playerName')) {
+        this.stage.hud.createTextBox('playerName', {
+          style: {
+            fontFamily: 'Arial',
+            fontSize: '16px',
+            align: 'left',
+            fill: 'white'
+          },
+          location: Stage.playerNameBoxLocation()
+        });
+      }
+      this.stage.hud.playerName = this.playerNameVal ? ('🦆 ' + this.playerNameVal) : '';
+    }
+  }
+
+  showNameOverlay() {
+    const overlay = document.createElement('div');
+    overlay.id = 'dhjs-name-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.background = 'rgba(0,0,0,0.35)';
+    overlay.style.zIndex = '9999';
+
+    const panel = document.createElement('div');
+    panel.style.background = 'rgba(20,20,20,0.9)';
+    panel.style.color = '#fff';
+    panel.style.padding = '20px 24px';
+    panel.style.borderRadius = '10px';
+    panel.style.textAlign = 'center';
+    panel.style.minWidth = '320px';
+
+    const title = document.createElement('h2');
+    title.textContent = 'Duck Hunt';
+    title.style.margin = '0 0 10px 0';
+
+    const text = document.createElement('p');
+    text.textContent = 'Enter your name to start';
+    text.style.margin = '0 0 12px 0';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Player name';
+    input.style.padding = '8px 10px';
+    input.style.borderRadius = '6px';
+    input.style.border = '1px solid #444';
+    input.style.width = '100%';
+    input.style.marginBottom = '12px';
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Start';
+    btn.style.padding = '10px 16px';
+    btn.style.border = 'none';
+    btn.style.borderRadius = '8px';
+    btn.style.background = '#ffd27a';
+    btn.style.color = '#222';
+    btn.style.fontWeight = '600';
+    btn.style.cursor = 'pointer';
+
+    btn.addEventListener('click', () => {
+      this.playerName = (input.value || '').trim();
+      document.body.removeChild(overlay);
+      this.startLevel();
+    });
+
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        btn.click();
+      }
+    });
+
+    panel.appendChild(title);
+    panel.appendChild(text);
+    panel.appendChild(input);
+    panel.appendChild(btn);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    input.focus();
   }
 
   addFullscreenLink() {
@@ -500,7 +590,7 @@ class Game {
 
   loss() {
     sound.play('loserSound');
-    this.gameStatus = 'You Lose!';
+    this.gameStatus = 'Such a Loser!';
     this.showReplay(this.getScoreMessage());
   }
 

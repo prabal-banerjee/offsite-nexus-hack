@@ -37542,7 +37542,7 @@ var Game = function () {
     key: 'loss',
     value: function loss() {
       _Sound2.default.play('loserSound');
-      this.gameStatus = 'You Lose!';
+      this.gameStatus = 'Such a Loser!';
       this.showReplay(this.getScoreMessage());
     }
   }, {
