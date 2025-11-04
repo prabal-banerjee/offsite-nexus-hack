@@ -1,4 +1,4 @@
-import {Point, Graphics, Container, loader, extras} from 'pixi.js';
+import {Point, Graphics, Container, loader, extras, Text} from 'pixi.js';
 import BPromise from 'bluebird';
 import {some as _some} from 'lodash/collection';
 import {delay as _delay} from 'lodash/function';
@@ -56,6 +56,11 @@ class Stage extends Container {
     this.spritesheet = opts.spritesheet;
     this.interactive = true;
     this.ducks = [];
+    // track unique logo names and per-logo shot counts
+    this.logoNames = new Set([
+      'ARB-AAVE-USDT', 'ETH-PENDLE-USDC', 'ARB-AAVE-USDT'
+    ]);
+    this.shotLogoCounts = new Map();
     this.dog = new Dog({
       spritesheet: opts.spritesheet,
       downPoint: DOG_POINTS.DOWN,
@@ -204,6 +209,19 @@ class Stage extends Container {
         maxY: MAX_Y
       });
       newDuck.position.set(DUCK_POINTS.ORIGIN.x, DUCK_POINTS.ORIGIN.y);
+      // assign a random logo tag from the Set and overlay a label above the duck
+      const namesArr = Array.from(this.logoNames);
+      newDuck.logoTag = namesArr[Math.floor(Math.random() * namesArr.length)];
+      const label = new Text(newDuck.logoTag, {
+        fontFamily: 'Arial',
+        fontSize: 12,
+        fill: 'white',
+        stroke: '#000000',
+        strokeThickness: 3
+      });
+      label.anchor.set(0.5, 1);
+      label.position.set(0, -28);
+      newDuck.addChild(label);
       this.addChildAt(newDuck, 0);
       newDuck.randomFlight({
         speed
@@ -234,6 +252,12 @@ class Stage extends Container {
       if (duck.alive && Utils.pointDistance(duck.position, this.getScaledClickLocation(clickPoint)) < radius) {
         ducksShot++;
         duck.shot();
+        if (duck.logoTag) {
+          const prev = this.shotLogoCounts.get(duck.logoTag) || 0;
+          this.shotLogoCounts.set(duck.logoTag, prev + 1);
+          // eslint-disable-next-line no-console
+          console.log('Shot logo counts:', Object.fromEntries(this.shotLogoCounts));
+        }
         duck.timeline.add(() => {
           if (!this.isLocked()) {
             this.dog.retrieve();
