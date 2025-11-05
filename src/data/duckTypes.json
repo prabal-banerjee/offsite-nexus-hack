@@ -1,0 +1,46 @@
+{
+  "duckTypes": {
+    "op": {
+      "name": "op",
+      "color": "red",
+      "multiplierRange": [2, 4],
+      "baseSpeed": 1.0
+    },
+    "base": {
+      "name": "base",
+      "color": "red", 
+      "multiplierRange": [1, 3],
+      "baseSpeed": 1.0
+    },
+    "arb": {
+      "name": "arb",
+      "color": "black",
+      "multiplierRange": [1, 3], 
+      "baseSpeed": 1.0
+    },
+    "scroll": {
+      "name": "scroll",
+      "color": "red",
+      "multiplierRange": [2, 5],
+      "baseSpeed": 1.0
+    },
+    "pol": {
+      "name": "pol",
+      "color": "black",
+      "multiplierRange": [1, 4],
+      "baseSpeed": 1.0
+    },
+    "avail": {
+      "name": "avail",
+      "color": "black",
+      "multiplierRange": [10, 10],
+      "baseSpeed": 1.2
+    },
+    "penalty": {
+      "name": "penalty",
+      "color": "red", 
+      "multiplierRange": [0, 0],
+      "baseSpeed": 1.1
+    }
+  }
+}

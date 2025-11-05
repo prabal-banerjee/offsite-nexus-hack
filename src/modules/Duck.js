@@ -5,7 +5,6 @@ import Utils from '../libs/utils';
 import Character from './Character';
 import sound from './Sound';
 
-const DEATH_ANIMATION_SECONDS = 0.6;
 const RANDOM_FLIGHT_DELTA = 300;
 
 class Duck extends Character {
@@ -58,6 +57,7 @@ class Duck extends Character {
     this.visible = true;
     this.options = options;
     this.anchor.set(0.5, 0.5);
+    this.timeoutIds = []; // Track setTimeout IDs for cleanup
   }
 
   /**
@@ -93,7 +93,18 @@ class Duck extends Character {
     this.flyTo({
       point: destination,
       speed: options.speed,
-      onComplete: this.randomFlight.bind(this, options)
+      onComplete: () => {
+        // Break the synchronous call stack to prevent stack overflow
+        if (this.alive && this.visible) {
+          const timeoutId = setTimeout(() => {
+            // Extra safety: check if duck is still alive, visible, and has a parent before continuing
+            if (this.alive && this.visible && this.parent) {
+              this.randomFlight(options);
+            }
+          }, 10);
+          this.timeoutIds.push(timeoutId);
+        }
+      }
     });
   }
 
@@ -108,6 +119,11 @@ class Duck extends Character {
    * @returns {Duck}
    */
   flyTo(opts) {
+    // Safety check to prevent animation on dead/invisible ducks
+    if (!this.alive || !this.visible) {
+      return this;
+    }
+
     const options = _extend({
       point: this.position,
       speed: this.speed,
@@ -132,10 +148,54 @@ class Duck extends Character {
         this.state = direction.replace('bottom', 'top');
         options.onStart();
       },
-      onComplete: options.onComplete
+      onComplete: () => {
+        // Additional safety check before calling onComplete
+        if (this.alive && this.visible) {
+          options.onComplete();
+        }
+      }
     });
 
     return this;
+  }
+
+  /**
+   * clearAllTimeouts
+   * Method that clears all pending setTimeout callbacks
+   */
+  clearAllTimeouts() {
+    this.timeoutIds.forEach(timeoutId => clearTimeout(timeoutId));
+    this.timeoutIds = [];
+  }
+
+  /**
+   * destroy
+   * Method that completely destroys the duck and all its animations
+   */
+  destroy() {
+    this.alive = false;
+    this.visible = false;
+    
+    // Clear all animations and timeouts
+    this.clearAllTimeouts();
+    
+    // Stop any current sprite animations immediately
+    this.stop();
+    
+    // Kill and clear the GSAP timeline completely
+    if (this.timeline) {
+      this.timeline.kill();
+      this.timeline = null;
+    }
+    
+    // Remove from parent if it has one
+    if (this.parent) {
+      this.parent.removeChild(this);
+    }
+    
+    // Clear any remaining references to help garbage collection
+    this.options = null;
+    this.states = null;
   }
 
   /**
@@ -147,26 +207,23 @@ class Duck extends Character {
       return;
     }
     this.alive = false;
-
     this.stopAndClearTimeline();
-    this.timeline.add(() => {
-      this.state = 'shot';
-      sound.play('quak', _noop);
-    });
-
-    this.timeline.to(this.position, DEATH_ANIMATION_SECONDS, {
-      y: this.options.maxY,
+    sound.play('quak', _noop);
+    this.state = 'shot';
+    this.timeline.to(this.position, 0.4, {
+      y: this.position.y + 100,
       ease: 'Linear.easeNone',
-      delay: 0.3,
-      onStart: () => {
-        this.state = 'dead';
-      },
       onComplete: () => {
-        sound.play('thud', _noop);
-        this.visible = false;
+        this.state = 'dead';
+        this.timeline.to(this.position, 1, {
+          y: this.position.y + 400,
+          ease: 'Linear.easeNone',
+          onComplete: () => {
+            this.visible = false;
+          }
+        });
       }
     });
-
   }
 
   /**
@@ -179,6 +236,10 @@ class Duck extends Character {
    * @returns {*|boolean}
    */
   isActive() {
+    // Safety check: if timeline is null (destroyed duck), it's not active
+    if (!this.timeline) {
+      return false;
+    }
     return this.visible || super.isActive();
   }
 
