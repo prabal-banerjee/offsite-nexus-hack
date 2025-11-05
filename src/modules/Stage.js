@@ -5,6 +5,7 @@ import {delay as _delay} from 'lodash/function';
 import {inRange as _inRange} from 'lodash/number';
 import Utils from '../libs/utils';
 import Duck from './Duck';
+import SeededRNG from '../libs/seededRandom';
 import Dog from './Dog';
 import Hud from './Hud';
 
@@ -71,6 +72,7 @@ class Stage extends Container {
     this.flashScreen = FLASH_SCREEN;
     this.flashScreen.visible = false;
     this.hud = new Hud();
+    this.shotMarkers = new Container();
 
     this._setStage();
     this.scaleToWindow();
@@ -124,6 +126,14 @@ class Stage extends Container {
     return HUD_LOCATIONS.PLAYER_NAME;
   }
 
+  static multiplayerPlayersLocation() {
+    return new Point(10, 50);
+  }
+
+  static multiplayerSelfLocation() {
+    return new Point(10, 30);
+  }
+
   pause() {
     this.dog.timeline.pause();
     this.ducks.forEach((duck) => {
@@ -165,9 +175,22 @@ class Stage extends Container {
     this.addChild(background);
     this.addChild(this.dog);
     this.addChild(this.flashScreen);
+    this.addChild(this.shotMarkers);
     this.addChild(this.hud);
 
     return this;
+  }
+
+  showShotMarker(point) {
+    const marker = new Graphics();
+    marker.beginFill(0xff0000, 0.6);
+    marker.drawCircle(0, 0, 8);
+    marker.endFill();
+    marker.position.set(point.x / this.scale.x, point.y / this.scale.y);
+    this.shotMarkers.addChild(marker);
+    _delay(() => {
+      this.shotMarkers.removeChild(marker);
+    }, 300);
   }
 
   /**
@@ -202,7 +225,9 @@ class Stage extends Container {
    * @param {Number} numDucks - How many ducks to add to the stage
    * @param {Number} speed - Value from 0 (slow) to 10 (fast) that determines how fast the ducks will fly
    */
-  addDucks(numDucks, speed) {
+  addDucks(numDucks, speed, waveNumber = 0, seed = null) {
+    // Use wave number and index to create consistent IDs across all clients
+    const baseRng = seed != null ? new SeededRNG((seed >>> 0) + waveNumber) : null;
     for (let i = 0; i < numDucks; i++) {
       const duckColor = i % 2 === 0 ? 'red' : 'black';
 
@@ -213,6 +238,8 @@ class Stage extends Container {
         maxX: MAX_X,
         maxY: MAX_Y
       });
+      // Use wave and index for consistent IDs across all clients
+      newDuck.id = `duck-wave${waveNumber}-${i}`;
       newDuck.position.set(DUCK_POINTS.ORIGIN.x, DUCK_POINTS.ORIGIN.y);
       // assign a random logo tag from the Set and overlay a label above the duck
       const namesArr = Array.from(this.logoNames);
@@ -228,8 +255,10 @@ class Stage extends Container {
       label.position.set(0, -28);
       newDuck.addChild(label);
       this.addChildAt(newDuck, 0);
+      const rng = baseRng ? new SeededRNG(baseRng.next() + i) : null;
       newDuck.randomFlight({
-        speed
+        speed,
+        rng
       });
 
       this.ducks.push(newDuck);

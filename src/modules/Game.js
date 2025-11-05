@@ -5,6 +5,7 @@ import Stage from './Stage';
 import sound from './Sound';
 import levelCreator from '../libs/levelCreator.js';
 import utils from '../libs/utils';
+import Multiplayer from './Multiplayer';
 
 const BLUE_SKY_COLOR = 0x64b0ff;
 const PINK_SKY_COLOR = 0xfbb4d4;
@@ -40,6 +41,18 @@ class Game {
     this.quackingSoundId = null;
     this.levels = levels.normal;
     this.playerNameVal = '';
+
+    // Options / HUD toggles
+    this.hideBullets = !!opts.hideBullets;
+
+    // Multiplayer support
+    this.multiplayerEnabled = opts.multiplayer || false;
+    this.multiplayer = null;
+    this.roomId = opts.roomId || null;
+    this.playerName = opts.playerName || null;
+    this.serverUrl = opts.serverUrl || 'http://localhost:3000';
+    this.duckSyncInterval = null;
+    this.iStartedGame = false;
     return this;
   }
 
@@ -106,6 +119,14 @@ class Game {
   set bullets(val) {
     this.bulletVal = val;
 
+    if (this.hideBullets) {
+      // If bullets HUD exists from a previous run, hide it
+      if (this.stage && this.stage.hud && this.stage.hud['bulletsContainer']) {
+        this.stage.hud['bulletsContainer'].visible = false;
+      }
+      return;
+    }
+
     if (this.stage && this.stage.hud) {
 
       if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'bullets')) {
@@ -119,6 +140,10 @@ class Game {
       }
 
       this.stage.hud.bullets = val;
+      // Ensure visible if we're showing bullets
+      if (this.stage.hud['bulletsContainer']) {
+        this.stage.hud['bulletsContainer'].visible = true;
+      }
     }
 
   }
@@ -260,8 +285,24 @@ class Game {
     this.addMuteLink();
     this.addFullscreenLink();
     this.bindEvents();
-    this.showNameOverlay();
-    this.animate();
+    if (this.multiplayerEnabled) {
+      this.initMultiplayer()
+        .then(() => {
+          this.startLevel();
+          this.animate();
+        })
+        .catch((error) => {
+          console.error('Multiplayer connection failed:', error);
+          console.log('Starting game in single-player mode...');
+          this.multiplayerEnabled = false;
+          // Fall back to name overlay then start
+          this.showNameOverlay();
+          this.animate();
+        });
+    } else {
+      this.showNameOverlay();
+      this.animate();
+    }
 
   }
 
@@ -354,6 +395,25 @@ class Game {
     input.focus();
   }
 
+  displaySelfName() {
+    if (!this.multiplayerEnabled || !this.stage || !this.stage.hud || !this.playerName) {
+      return;
+    }
+    if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'selfName')) {
+      this.stage.hud.createTextBox('selfName', {
+        style: {
+          fontFamily: 'Arial',
+          fontSize: '12px',
+          align: 'left',
+          fill: '#00ff99'
+        },
+        location: Stage.multiplayerSelfLocation(),
+        anchor: { x: 0, y: 0 }
+      });
+    }
+    this.stage.hud.selfName = `You: ${this.playerName}`;
+  }
+
   addFullscreenLink() {
     this.stage.hud.createTextBox('fullscreenLink', {
       style: BOTTOM_LINK_STYLE,
@@ -399,6 +459,126 @@ class Game {
       }
     });
     this.stage.hud.levelCreatorLink = 'level creator (c)';
+  }
+
+  initMultiplayer() {
+    return new Promise((resolve, reject) => {
+      this.multiplayer = new Multiplayer();
+      
+      this.multiplayer.onGameStateUpdate = (state) => {
+        this.updateMultiplayerDisplay(state);
+      };
+
+      this.multiplayer.onShotFired = (data) => {
+        // Visual marker for other players' shots
+        if (this.stage) {
+          this.stage.showShotMarker(data.clickPoint);
+        }
+      };
+
+      // No per-frame position sync needed with deterministic seeds
+
+      this.multiplayer.onDuckShot = (data) => {
+        // Another player shot a duck
+        if (this.stage && this.stage.ducks) {
+          const duck = this.stage.ducks.find(d => d.id === data.duckId);
+          if (duck && duck.alive) {
+            duck.shot();
+          }
+        }
+      };
+
+      this.multiplayer.onScoreUpdate = (data) => {
+        this.updateMultiplayerDisplay(data);
+      };
+
+      this.multiplayer.onWaveStarted = (data) => {
+        // Sync wave start - another player started a wave
+        if (data.waveStartTime) {
+          this.waveStartTime = data.waveStartTime;
+        }
+        // If we're not already in this wave, start it
+        if (this.wave !== data.wave && this.level) {
+          this.wave = data.wave;
+          // Initialize my bullets locally for this wave
+          this.bullets = this.level.bullets;
+          this.ducksShotThisWave = 0;
+          this.waveEnding = false;
+          
+          // Start the same wave with synchronized duck IDs
+          this.quackingSoundId = sound.play('quacking');
+          this.stage.cleanUpDucks();
+          const duckCount = data.ducks || this.level.ducks;
+          this.stage.addDucks(duckCount, this.level.speed, data.wave, data.seed);
+        }
+      };
+
+      this.multiplayer.onGameStarted = (data) => {
+        // Sync game start - another player started the game
+        this.players = data.players || [];
+        if (data.level) {
+          // Another player started, sync to their level
+          this.level = data.level;
+          this.levelIndex = this.levels.findIndex(l => l.id === data.level.id) || 0;
+          this.maxScore += this.level.waves * this.level.ducks * this.level.pointsPerDuck;
+          this.ducksShot = 0;
+          this.ducksMissed = 0;
+          this.wave = 0;
+          
+          this.gameStatus = this.level.title;
+          this.stage.preLevelAnimation().then(() => {
+            this.gameStatus = '';
+            // Wait for wave start signal
+          });
+        }
+      };
+
+      this.multiplayer.connect(this.serverUrl, this.playerName)
+        .then(() => {
+          this.multiplayer.joinGame(this.roomId, this.playerName);
+          this.displaySelfName();
+          resolve();
+        })
+        .catch(reject);
+    });
+  }
+
+  setupMultiplayerSync() {
+    // Disabled: we now use seeded simulation; network noise reduced
+  }
+
+  updateMultiplayerDisplay(data) {
+    if (!this.stage || !this.stage.hud) return;
+    
+    const players = data.players || [];
+    const otherPlayers = players.filter(p => p.id !== this.multiplayer.playerId);
+    
+    if (otherPlayers.length > 0) {
+      if (!this.stage.hud.multiplayerPlayers) {
+        this.stage.hud.createTextBox('multiplayerPlayers', {
+          style: {
+            fontFamily: 'Arial',
+            fontSize: '12px',
+            align: 'left',
+            fill: '#ffff00'
+          },
+          location: Stage.multiplayerPlayersLocation(),
+          anchor: {
+            x: 0,
+            y: 0
+          }
+        });
+      }
+      
+      const playerList = otherPlayers.map(p => 
+        `${p.name}: ${p.score} pts (${p.ducksShot} ducks)`
+      ).join('\n');
+      this.stage.hud.multiplayerPlayers = `Other Players:\n${playerList}`;
+    } else {
+      if (this.stage.hud.multiplayerPlayers) {
+        this.stage.hud.multiplayerPlayers = '';
+      }
+    }
   }
 
   bindEvents() {
@@ -467,6 +647,10 @@ class Game {
           sound.play(soundId);
         });
       }
+      
+      if (this.multiplayerEnabled && this.multiplayer) {
+        this.multiplayer.pauseGame(this.paused);
+      }
     }, 40);
   }
 
@@ -500,10 +684,24 @@ class Game {
     this.ducksMissed = 0;
     this.wave = 0;
 
+    if (this.multiplayerEnabled && this.multiplayer) {
+      // Announce game start; mark self as initiator
+      this.iStartedGame = true;
+      this.multiplayer.startGame(this.level);
+    }
+
     this.gameStatus = this.level.title;
     this.stage.preLevelAnimation().then(() => {
       this.gameStatus = '';
-      this.startWave();
+      if (this.multiplayerEnabled) {
+        // Server will be authoritative for waves; if we started the game, trigger wave on server
+        if (this.iStartedGame && this.multiplayer) {
+          // Force 2 ducks per wave for synced multiplayer
+          this.multiplayer.startWave(2, this.level.bullets);
+        }
+      } else {
+        this.startWave();
+      }
     });
   }
 
@@ -515,13 +713,26 @@ class Game {
     this.ducksShotThisWave = 0;
     this.waveEnding = false;
 
-    this.stage.addDucks(this.level.ducks, this.level.speed);
+    if (this.multiplayerEnabled && this.multiplayer) {
+      // Notify server about wave start
+      this.multiplayer.startWave(this.level.ducks, this.level.bullets);
+    }
+
+    // Use a deterministic seed for local initiator as well
+    const seed = (this.waveStartTime & 0xffffffff);
+    // Pass wave number and seed to ensure consistent duck IDs and paths
+    this.stage.addDucks(this.level.ducks, this.level.speed, this.wave, seed);
   }
 
   endWave() {
     this.waveEnding = true;
     this.bullets = 0;
     sound.stop(this.quackingSoundId);
+    
+    if (this.multiplayerEnabled && this.multiplayer) {
+      this.multiplayer.endWave();
+    }
+    
     if (this.stage.ducksAlive()) {
       this.ducksMissed += this.level.ducks - this.ducksShotThisWave;
       this.renderer.backgroundColor = PINK_SKY_COLOR;
@@ -564,6 +775,11 @@ class Game {
 
   endLevel() {
     this.wave = 0;
+    
+    if (this.multiplayerEnabled && this.multiplayer) {
+      this.multiplayer.endLevel();
+    }
+    
     this.goToNextLevel();
   }
 
@@ -670,7 +886,25 @@ class Game {
     if (!this.stage.hud.replayButton && !this.outOfAmmo() && !this.shouldWaveEnd() && !this.paused) {
       sound.play('gunSound');
       this.bullets -= 1;
-      this.updateScore(this.stage.shotsFired(clickPoint, this.level.radius));
+      
+      const ducksShot = this.stage.shotsFired(clickPoint, this.level.radius);
+      
+      if (this.multiplayerEnabled && this.multiplayer) {
+        this.multiplayer.fireShot(clickPoint, this.level.radius);
+        if (ducksShot > 0) {
+          const points = ducksShot * this.level.pointsPerDuck;
+          this.multiplayer.reportDucksHit(ducksShot, points);
+          
+          // Report individual duck shots
+          this.stage.ducks.forEach((duck) => {
+            if (!duck.alive && duck.visible && duck.id) {
+              this.multiplayer.reportDuckShot(duck.id);
+            }
+          });
+        }
+      }
+      
+      this.updateScore(ducksShot);
       return;
     }
 
