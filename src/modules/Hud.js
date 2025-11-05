@@ -1,5 +1,6 @@
-import {Container, Point, Text, loader, extras} from 'pixi.js';
-import {assign as _extend} from 'lodash/object';
+import {Container, Point, Text, Assets, AnimatedSprite} from 'pixi.js';
+
+const extend = (target, ...sources) => Object.assign({}, target, ...sources);
 
 /**
  * Hud
@@ -26,7 +27,7 @@ class Hud extends Container {
    */
   createTextBox(name, opts) {
     // set defaults, and allow them to be overwritten
-    const options = _extend({
+    const options = extend({
       style: {
         fontFamily: 'Arial',
         fontSize: '18px',
@@ -57,7 +58,7 @@ class Hud extends Container {
   }
 
   createTextureBasedCounter(name, opts) {
-    const options = _extend({
+    const options = extend({
       texture: '',
       spritesheet: '',
       location: new Point(0, 0)
@@ -70,15 +71,15 @@ class Hud extends Container {
 
     Object.defineProperty(this, name, {
       set: (val) => {
-        const gameTextures = loader.resources[options.spritesheet].textures;
-        const texture = gameTextures[options.texture];
+        const spritesheetResource = Assets.get(options.spritesheet);
+        const texture = spritesheetResource.textures[options.texture];
         const childCount = container.children.length;
         if (options.max && val > options.max) {
           val = options.max;
         }
         if (childCount < val) {
           for (let i = childCount; i < val; i++) {
-            const item = new extras.AnimatedSprite([texture]);
+            const item = new AnimatedSprite([texture]);
             let yPos = 0;
             let xPosDelta = i;
             if (options.rowMax && options.rowMax < val) {

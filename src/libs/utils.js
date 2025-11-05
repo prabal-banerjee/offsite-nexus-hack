@@ -1,10 +1,10 @@
-module.exports.pointDistance = function(point1, point2) {
+export const pointDistance = (point1, point2) => {
   return Math.sqrt(
     (Math.pow((point1.x - point2.x), 2) + Math.pow((point1.y - point2.y), 2))
   );
 };
 
-module.exports.directionOfTravel = function(pointStart, pointEnd) {
+export const directionOfTravel = (pointStart, pointEnd) => {
   let direction = '';
 
   //positive means down
@@ -33,7 +33,7 @@ module.exports.directionOfTravel = function(pointStart, pointEnd) {
   return direction;
 };
 
-module.exports.toggleFullscreen = function() {
+export const toggleFullscreen = () => {
   const doc = window.document;
   const docEl = doc.documentElement;
 
@@ -48,4 +48,10 @@ module.exports.toggleFullscreen = function() {
   else {
     cancelFullScreen.call(doc);
   }
+};
+
+export default {
+  pointDistance,
+  directionOfTravel,
+  toggleFullscreen
 };

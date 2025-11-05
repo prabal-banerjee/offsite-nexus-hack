@@ -1,14 +1,14 @@
-var gulp = require('gulp');
-var connect = require('gulp-connect');
-var audiosprite = require('./vendor/audiosprite');
-var glob = require('glob');
-var shell = require('gulp-shell');
-var fs = require('fs');
+const gulp = require('gulp');
+const connect = require('gulp-connect');
+const audiosprite = require('./vendor/audiosprite');
+const { globSync } = require('glob');
+const shell = require('gulp-shell');
+const fs = require('fs').promises;
 
-gulp.task('audio', gulp.parallel(function(cb) {
-  var files = glob.sync('./src/assets/sounds/*.mp3');
-  var outputPath = './dist/audio';
-  var opts = {
+gulp.task('audio', gulp.parallel(async function() {
+  const files = globSync('./src/assets/sounds/*.mp3');
+  const outputPath = './dist/audio';
+  const opts = {
     output: outputPath,
     path: './',
     format: 'howler2',
@@ -16,12 +16,21 @@ gulp.task('audio', gulp.parallel(function(cb) {
     loop: ['quacking', 'sniff']
   };
 
-  return audiosprite(files, opts, function(err, obj) {
-    if (err) {
-      console.error(err);
-    }
+  return new Promise((resolve, reject) => {
+    audiosprite(files, opts, async function(err, obj) {
+      if (err) {
+        console.error(err);
+        reject(err);
+        return;
+      }
 
-    return fs.writeFile('./dist/audio' + '.json', JSON.stringify(obj, null, 2), cb);
+      try {
+        await fs.writeFile('./dist/audio' + '.json', JSON.stringify(obj, null, 2));
+        resolve();
+      } catch (writeErr) {
+        reject(writeErr);
+      }
+    });
   });
 }));
 

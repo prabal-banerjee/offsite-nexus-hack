@@ -1,10 +1,10 @@
 const urlQueryString = new URLSearchParams(window.location.search);
 
-function parseQueryParamAsInt(param) {
+const parseQueryParamAsInt = (param) => {
   return parseInt(urlQueryString.get(param), 10);
-}
+};
 
-module.exports.parseLevelQueryString = function() {
+export const parseLevelQueryString = () => {
   return {
     id: -1,
     title: urlQueryString.get('title') || 'Generated Level',
@@ -18,6 +18,11 @@ module.exports.parseLevelQueryString = function() {
   };
 };
 
-module.exports.urlContainsLevelData = function() {
+export const urlContainsLevelData = () => {
   return window.location.href.indexOf('?') !== -1;
+};
+
+export default {
+  parseLevelQueryString,
+  urlContainsLevelData
 };

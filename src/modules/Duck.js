@@ -1,9 +1,11 @@
-import {random as _random} from 'lodash/number';
-import {assign as _extend} from 'lodash/object';
-import {noop as _noop} from 'lodash/util';
-import Utils from '../libs/utils';
+import * as Utils from '../libs/utils';
 import Character from './Character';
 import sound from './Sound';
+
+// Match lodash's random behavior - returns floating point numbers
+const random = (min, max) => Math.random() * (max - min) + min;
+const noop = () => {};
+const extend = (target, ...sources) => Object.assign({}, target, ...sources);
 
 const DEATH_ANIMATION_SECONDS = 0.6;
 const RANDOM_FLIGHT_DELTA = 300;
@@ -72,7 +74,7 @@ class Duck extends Character {
    * @param {Number} [opts.speed=1] Speed of travel on a scale of 0 (slow) to 10 (fast)
    */
   randomFlight(opts) {
-    const options = _extend({
+    const options = extend({
       minX: 0,
       maxX: this.options.maxX || Infinity,
       minY: 0,
@@ -84,8 +86,8 @@ class Duck extends Character {
     let distance, destination;
     do {
       destination = {
-        x: _random(options.minX, options.maxX),
-        y: _random(options.minY, options.maxY)
+        x: random(options.minX, options.maxX),
+        y: random(options.minY, options.maxY)
       };
       distance = Utils.pointDistance(this.position, destination);
     } while (distance < options.randomFlightDelta);
@@ -108,22 +110,23 @@ class Duck extends Character {
    * @returns {Duck}
    */
   flyTo(opts) {
-    const options = _extend({
+    const options = extend({
       point: this.position,
       speed: this.speed,
-      onStart: _noop,
-      onComplete: _noop
+      onStart: noop,
+      onComplete: noop
     }, opts);
 
     this.speed = options.speed;
 
     const direction = Utils.directionOfTravel(this.position, options.point);
-    const tweenSeconds = (this.flightAnimationMs + _random(0, 300)) / 1000;
+    const tweenSeconds = (this.flightAnimationMs + random(0, 300)) / 1000;
 
-    this.timeline.to(this.position, tweenSeconds, {
+    this.timeline.to(this.position, {
+      duration: tweenSeconds,
       x: options.point.x,
       y: options.point.y,
-      ease: 'Linear.easeNone',
+      ease: 'none',
       onStart: () => {
         if (!this.alive) {
           this.stopAndClearTimeline();
@@ -151,18 +154,19 @@ class Duck extends Character {
     this.stopAndClearTimeline();
     this.timeline.add(() => {
       this.state = 'shot';
-      sound.play('quak', _noop);
+      sound.play('quak', noop);
     });
 
-    this.timeline.to(this.position, DEATH_ANIMATION_SECONDS, {
+    this.timeline.to(this.position, {
+      duration: DEATH_ANIMATION_SECONDS,
       y: this.options.maxY,
-      ease: 'Linear.easeNone',
+      ease: 'none',
       delay: 0.3,
       onStart: () => {
         this.state = 'dead';
       },
       onComplete: () => {
-        sound.play('thud', _noop);
+        sound.play('thud', noop);
         this.visible = false;
       }
     });

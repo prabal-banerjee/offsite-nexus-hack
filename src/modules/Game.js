@@ -1,10 +1,9 @@
-import {loader, autoDetectRenderer} from 'pixi.js';
-import {remove as _remove} from 'lodash/array';
+import {Assets, autoDetectRenderer} from 'pixi.js';
 import levels from '../data/levels.json';
 import Stage from './Stage';
 import sound from './Sound';
-import levelCreator from '../libs/levelCreator.js';
-import utils from '../libs/utils';
+import * as levelCreator from '../libs/levelCreator.js';
+import * as utils from '../libs/utils';
 
 const BLUE_SKY_COLOR = 0x64b0ff;
 const PINK_SKY_COLOR = 0xfbb4d4;
@@ -25,8 +24,9 @@ class Game {
    */
   constructor(opts) {
     this.spritesheet = opts.spritesheet;
-    this.loader = loader;
-    this.renderer =  autoDetectRenderer(window.innerWidth, window.innerHeight, {
+    this.renderer =  autoDetectRenderer({
+      width: window.innerWidth,
+      height: window.innerHeight,
       backgroundColor: BLUE_SKY_COLOR
     });
     this.levelIndex = 0;
@@ -240,10 +240,9 @@ class Game {
     }
   }
 
-  load() {
-    this.loader
-      .add(this.spritesheet)
-      .load(this.onLoad.bind(this));
+  async load() {
+    await Assets.load(this.spritesheet);
+    this.onLoad();
   }
 
   onLoad() {
@@ -314,7 +313,7 @@ class Game {
   bindEvents() {
     window.addEventListener('resize', this.scaleToWindow.bind(this));
 
-    this.stage.mousedown = this.stage.touchstart = this.handleClick.bind(this);
+    this.stage.on('pointerdown', this.handleClick.bind(this));
 
     document.addEventListener('keypress', (event) => {
       event.stopImmediatePropagation();
@@ -381,9 +380,7 @@ class Game {
   }
 
   removeActiveSound(soundId) {
-    _remove(this.activeSounds, function(item) {
-      return item === soundId;
-    });
+    this.activeSounds = this.activeSounds.filter((item) => item !== soundId);
   }
 
   mute() {

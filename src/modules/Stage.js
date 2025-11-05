@@ -1,12 +1,12 @@
-import {Point, Graphics, Container, loader, extras} from 'pixi.js';
-import BPromise from 'bluebird';
-import {some as _some} from 'lodash/collection';
-import {delay as _delay} from 'lodash/function';
-import {inRange as _inRange} from 'lodash/number';
-import Utils from '../libs/utils';
+import {Point, Graphics, Container, Assets, AnimatedSprite} from 'pixi.js';
+import * as Utils from '../libs/utils';
 import Duck from './Duck';
 import Dog from './Dog';
 import Hud from './Hud';
+
+const delay = (fn, ms) => setTimeout(fn, ms);
+const some = (array, predicate) => array.some(predicate);
+const inRange = (num, start, end) => num >= start && num < end;
 
 const MAX_X = 800;
 const MAX_Y = 600;
@@ -54,7 +54,7 @@ class Stage extends Container {
     super();
     this.locked = false;
     this.spritesheet = opts.spritesheet;
-    this.interactive = true;
+    this.eventMode = 'static';
     this.ducks = [];
     this.dog = new Dog({
       spritesheet: opts.spritesheet,
@@ -143,12 +143,13 @@ class Stage extends Container {
    * @private
    */
   _setStage() {
-    const background = new extras.AnimatedSprite([
-      loader.resources[this.spritesheet].textures['scene/back/0.png']
+    const spritesheetResource = Assets.get(this.spritesheet);
+    const background = new AnimatedSprite([
+      spritesheetResource.textures['scene/back/0.png']
     ]);
     background.position.set(0, 0);
 
-    const tree = new extras.AnimatedSprite([loader.resources[this.spritesheet].textures['scene/tree/0.png']]);
+    const tree = new AnimatedSprite([spritesheetResource.textures['scene/tree/0.png']]);
     tree.position.set(100, 237);
 
     this.addChild(tree);
@@ -167,7 +168,7 @@ class Stage extends Container {
    * @returns {Promise}
    */
   preLevelAnimation() {
-    return new BPromise((resolve) => {
+    return new Promise((resolve) => {
       this.cleanUpDucks();
 
       const sniffOpts = {
@@ -224,7 +225,7 @@ class Stage extends Container {
   shotsFired(clickPoint, radius) {
     // flash the screen
     this.flashScreen.visible = true;
-    _delay(() => {
+    delay(() => {
       this.flashScreen.visible = false;
     }, FLASH_MS);
 
@@ -253,26 +254,26 @@ class Stage extends Container {
     const scaledClickPoint = this.getScaledClickLocation(clickPoint);
 
     // with this link we have a very narrow hit box, radius search is not appropriate
-    return _inRange(scaledClickPoint.x, HUD_LOCATIONS.LEVEL_CREATOR_LINK.x-110, HUD_LOCATIONS.LEVEL_CREATOR_LINK.x) &&
-      _inRange(scaledClickPoint.y, HUD_LOCATIONS.LEVEL_CREATOR_LINK.y-30, HUD_LOCATIONS.LEVEL_CREATOR_LINK.y+10);
+    return inRange(scaledClickPoint.x, HUD_LOCATIONS.LEVEL_CREATOR_LINK.x-110, HUD_LOCATIONS.LEVEL_CREATOR_LINK.x) &&
+      inRange(scaledClickPoint.y, HUD_LOCATIONS.LEVEL_CREATOR_LINK.y-30, HUD_LOCATIONS.LEVEL_CREATOR_LINK.y+10);
   }
 
   clickedPauseLink(clickPoint) {
     const scaledClickPoint = this.getScaledClickLocation(clickPoint);
-    return _inRange(scaledClickPoint.x, HUD_LOCATIONS.PAUSE_LINK.x-110, HUD_LOCATIONS.PAUSE_LINK.x) &&
-      _inRange(scaledClickPoint.y, HUD_LOCATIONS.PAUSE_LINK.y-30, HUD_LOCATIONS.PAUSE_LINK.y+10);
+    return inRange(scaledClickPoint.x, HUD_LOCATIONS.PAUSE_LINK.x-110, HUD_LOCATIONS.PAUSE_LINK.x) &&
+      inRange(scaledClickPoint.y, HUD_LOCATIONS.PAUSE_LINK.y-30, HUD_LOCATIONS.PAUSE_LINK.y+10);
   }
 
   clickedFullscreenLink(clickPoint) {
     const scaledClickPoint = this.getScaledClickLocation(clickPoint);
-    return _inRange(scaledClickPoint.x, HUD_LOCATIONS.FULL_SCREEN_LINK.x-110, HUD_LOCATIONS.FULL_SCREEN_LINK.x) &&
-      _inRange(scaledClickPoint.y, HUD_LOCATIONS.FULL_SCREEN_LINK.y-30, HUD_LOCATIONS.FULL_SCREEN_LINK.y+10);
+    return inRange(scaledClickPoint.x, HUD_LOCATIONS.FULL_SCREEN_LINK.x-110, HUD_LOCATIONS.FULL_SCREEN_LINK.x) &&
+      inRange(scaledClickPoint.y, HUD_LOCATIONS.FULL_SCREEN_LINK.y-30, HUD_LOCATIONS.FULL_SCREEN_LINK.y+10);
   }
 
   clickedMuteLink(clickPoint) {
     const scaledClickPoint = this.getScaledClickLocation(clickPoint);
-    return _inRange(scaledClickPoint.x, HUD_LOCATIONS.MUTE_LINK.x-110, HUD_LOCATIONS.MUTE_LINK.x) &&
-      _inRange(scaledClickPoint.y, HUD_LOCATIONS.MUTE_LINK.y-30, HUD_LOCATIONS.MUTE_LINK.y+10);
+    return inRange(scaledClickPoint.x, HUD_LOCATIONS.MUTE_LINK.x-110, HUD_LOCATIONS.MUTE_LINK.x) &&
+      inRange(scaledClickPoint.y, HUD_LOCATIONS.MUTE_LINK.y-30, HUD_LOCATIONS.MUTE_LINK.y+10);
   }
 
   getScaledClickLocation(clickPoint) {
@@ -295,7 +296,7 @@ class Stage extends Container {
     for (let i = 0; i < this.ducks.length; i++) {
       const duck = this.ducks[i];
       if (duck.alive) {
-        duckPromises.push(new BPromise((resolve) => {
+        duckPromises.push(new Promise((resolve) => {
           duck.stopAndClearTimeline();
           duck.flyTo({
             point: new Point(MAX_X / 2, -500),
@@ -305,7 +306,7 @@ class Stage extends Container {
       }
     }
 
-    return BPromise.all(duckPromises).then(this.cleanUpDucks.bind(this)).then(this.unlock.bind(this));
+    return Promise.all(duckPromises).then(this.cleanUpDucks.bind(this)).then(this.unlock.bind(this));
   }
 
   /**
@@ -326,7 +327,7 @@ class Stage extends Container {
    * @returns {Boolean}
    */
   ducksAlive() {
-    return _some(this.ducks, (duck) => {
+    return some(this.ducks, (duck) => {
       return duck.alive;
     });
   }
@@ -338,7 +339,7 @@ class Stage extends Container {
    * @returns {Boolean}
    */
   ducksActive() {
-    return _some(this.ducks, (duck) => {
+    return some(this.ducks, (duck) => {
       return duck.isActive();
     });
   }

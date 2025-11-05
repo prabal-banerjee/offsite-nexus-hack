@@ -1,8 +1,9 @@
-import {TweenMax} from 'gsap';
-import {noop as _noop} from 'lodash/util';
-import {assign as _extend} from 'lodash/object';
+import gsap from 'gsap';
 import sound from './Sound';
 import Character from './Character';
+
+const noop = () => {};
+const extend = (target, ...sources) => Object.assign({}, target, ...sources);
 
 
 class Dog extends Character {
@@ -59,11 +60,11 @@ class Dog extends Character {
    * @returns {Dog}
    */
   sniff(opts) {
-    const options = _extend({
+    const options = extend({
       startPoint: this.position,
       endPoint: this.position,
-      onStart: _noop,
-      onComplete: _noop
+      onStart: noop,
+      onComplete: noop
     }, opts);
 
     this.sit({
@@ -73,10 +74,11 @@ class Dog extends Character {
       }
     });
 
-    this.timeline.to(this.position, 2, {
+    this.timeline.to(this.position, {
+      duration: 2,
       x: options.endPoint.x,
       y: options.endPoint.y,
-      ease: 'Linear.easeNone',
+      ease: 'none',
       onStart: () => {
         this.visible = true;
         this.parent.setChildIndex(this, this.parent.children.length - 1);
@@ -103,23 +105,24 @@ class Dog extends Character {
    * return {Dog}
    */
   upDownTween(opts) {
-    const options = _extend({
+    const options = extend({
       startPoint: this.options.downPoint || this.position,
       endPoint: this.options.upPoint || this.position,
-      onStart: _noop,
-      onComplete: _noop
+      onStart: noop,
+      onComplete: noop
     }, opts);
 
     this.sit({
       point: options.startPoint
     });
 
-    this.timeline.add(TweenMax.to(this.position, 0.4, {
+    this.timeline.add(gsap.to(this.position, {
+      duration: 0.4,
       y: options.endPoint.y,
       yoyo: true,
       repeat: 1,
       repeatDelay: 0.5,
-      ease: 'Linear.easeNone',
+      ease: 'none',
       onStart: () => {
         this.visible = true;
         options.onStart.call(this);
@@ -137,9 +140,9 @@ class Dog extends Character {
    * @returns {Dog}
    */
   find(opts) {
-    const options = _extend({
-      onStart: _noop,
-      onComplete: _noop
+    const options = extend({
+      onStart: noop,
+      onComplete: noop
     }, opts);
 
     this.timeline.add(() => {
@@ -148,9 +151,10 @@ class Dog extends Character {
       options.onStart();
     });
 
-    this.timeline.add(TweenMax.to(this.position, 0.2, {
+    this.timeline.add(gsap.to(this.position, {
+      duration: 0.2,
       y: '-=100',
-      ease: 'Strong.easeOut',
+      ease: 'strong.out',
       delay: 0.4,
       onStart: () => {
         this.state = 'jump';
@@ -173,10 +177,10 @@ class Dog extends Character {
    * @returns {Dog}
    */
   sit(opts) {
-    const options = _extend({
+    const options = extend({
       point: this.position,
-      onStart: _noop,
-      onComplete: _noop
+      onStart: noop,
+      onComplete: noop
     }, opts);
 
     this.timeline.add(() => {

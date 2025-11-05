@@ -1,8 +1,7 @@
-import {extras, loader} from 'pixi.js';
-import {TimelineLite} from 'gsap';
-import {find as _find} from 'lodash/collection';
+import {AnimatedSprite, Assets} from 'pixi.js';
+import gsap from 'gsap';
 
-class Character extends extras.AnimatedSprite {
+class Character extends AnimatedSprite {
   /**
    * Character Constructor
    * @param {String} spriteId The leading id of this Character's resources in the spritesheet
@@ -11,7 +10,7 @@ class Character extends extras.AnimatedSprite {
    *   given sprite id.
    */
   constructor(spriteId, spritesheet, states) {
-    const gameTextures = loader.resources[spritesheet].textures;
+    const gameTextures = Assets.get(spritesheet).textures;
     for (const textureKey in gameTextures) {
       if (!Object.prototype.hasOwnProperty.call(gameTextures,textureKey) || textureKey.indexOf(spriteId) === -1) {
         continue;
@@ -23,7 +22,7 @@ class Character extends extras.AnimatedSprite {
       const state = parts.join('/').replace(spriteId + '/', '');
 
       // Only add textures if the state is supported by the class
-      const stateObj = _find(states, {name: state});
+      const stateObj = states.find((s) => s.name === state);
       if (!stateObj) {
         continue;
       }
@@ -43,9 +42,7 @@ class Character extends extras.AnimatedSprite {
     super(states[0].textures);
     this.states = states;
     this.animationSpeed = this.states[0].animationSpeed;
-    this.timeline = new TimelineLite({
-      autoRemoveChildren:true
-    });
+    this.timeline = gsap.timeline();
     return this;
   }
 
@@ -57,10 +54,7 @@ class Character extends extras.AnimatedSprite {
    */
   stopAndClearTimeline() {
     this.timeline.pause();
-    const timelineItem = this.timeline.getChildren();
-    for (let i = 0; i < timelineItem.length; i++) {
-      timelineItem[i].kill();
-    }
+    this.timeline.clear();
     this.timeline.play();
     return this;
   }
@@ -93,7 +87,7 @@ class Character extends extras.AnimatedSprite {
    * @throws {Error} In order for a state to be set, a texture must be specified in the spritesheet
    */
   set state(value) {
-    const stateObj = _find(this.states, {name: value});
+    const stateObj = this.states.find((s) => s.name === value);
     if (!stateObj) {
       throw new Error('The requested state (' + value + ') is not availble for this Character.');
     }
