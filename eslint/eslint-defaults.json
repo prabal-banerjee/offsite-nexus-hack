@@ -9,7 +9,7 @@
     "indent": ["error", 2, { "SwitchCase": 1, "ObjectExpression": 1 }],
     "keyword-spacing": ["error", { "before": true, "after": true}],
     "max-len": [1, {"ignoreComments": true, "code": 120}],
-    "no-console": [2],
+    "no-console": [0],
     "no-trailing-spaces": [2],
     "quotes": [0],
     "semi": ["error", "always", { "omitLastInOneLineBlock": true}],

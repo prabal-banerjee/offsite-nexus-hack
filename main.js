@@ -1,14 +1,19 @@
 import Game from "./src/modules/Game";
-import { initNexus } from "./src/nexus/nexus";
+import { getUnifiedBalances, initNexus } from "./src/nexus/nexus";
 
 document.addEventListener(
   "DOMContentLoaded",
   function () {
-    let game = new Game({
-      spritesheet: "sprites.json",
-    }).load();
+    async function init() {
+      await initNexus(window.ethereum);
+      const balances = await getUnifiedBalances();
+      console.log(balances);
+      new Game({
+        spritesheet: "sprites.json",
+      }).load();
+    }
 
-    initNexus(window.ethereum);
+    init();
   },
   false
 );

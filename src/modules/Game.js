@@ -1,18 +1,19 @@
-import {Assets, autoDetectRenderer} from 'pixi.js';
-import levels from '../data/levels.json';
-import Stage from './Stage';
-import sound from './Sound';
-import * as levelCreator from '../libs/levelCreator.js';
-import * as utils from '../libs/utils';
+import { Assets, autoDetectRenderer } from "pixi.js";
+import levels from "../data/levels.json";
+import Stage from "./Stage";
+import sound from "./Sound";
+import * as levelCreator from "../libs/levelCreator.js";
+import * as utils from "../libs/utils";
+import { getUnifiedBalances } from "../nexus/nexus.js";
 
 const BLUE_SKY_COLOR = 0x64b0ff;
 const PINK_SKY_COLOR = 0xfbb4d4;
 const SUCCESS_RATIO = 0.6;
 const BOTTOM_LINK_STYLE = {
-  fontFamily: 'Arial',
-  fontSize: '15px',
-  align: 'left',
-  fill: 'white'
+  fontFamily: "Arial",
+  fontSize: "15px",
+  align: "left",
+  fill: "white",
 };
 
 class Game {
@@ -24,10 +25,10 @@ class Game {
    */
   constructor(opts) {
     this.spritesheet = opts.spritesheet;
-    this.renderer =  autoDetectRenderer({
+    this.renderer = autoDetectRenderer({
       width: window.innerWidth,
       height: window.innerHeight,
-      backgroundColor: BLUE_SKY_COLOR
+      backgroundColor: BLUE_SKY_COLOR,
     });
     this.levelIndex = 0;
     this.maxScore = 0;
@@ -50,14 +51,15 @@ class Game {
     this.ducksMissedVal = val;
 
     if (this.stage && this.stage.hud) {
-
-      if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'ducksMissed')) {
-        this.stage.hud.createTextureBasedCounter('ducksMissed', {
-          texture: 'hud/score-live/0.png',
+      if (
+        !Object.prototype.hasOwnProperty.call(this.stage.hud, "ducksMissed")
+      ) {
+        this.stage.hud.createTextureBasedCounter("ducksMissed", {
+          texture: "hud/score-live/0.png",
           spritesheet: this.spritesheet,
           location: Stage.missedDuckStatusBoxLocation(),
           rowMax: 20,
-          max: 20
+          max: 20,
         });
       }
 
@@ -73,14 +75,13 @@ class Game {
     this.ducksShotVal = val;
 
     if (this.stage && this.stage.hud) {
-
-      if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'ducksShot')) {
-        this.stage.hud.createTextureBasedCounter('ducksShot', {
-          texture: 'hud/score-dead/0.png',
+      if (!Object.prototype.hasOwnProperty.call(this.stage.hud, "ducksShot")) {
+        this.stage.hud.createTextureBasedCounter("ducksShot", {
+          texture: "hud/score-dead/0.png",
           spritesheet: this.spritesheet,
           location: Stage.deadDuckStatusBoxLocation(),
-          rowMax:20,
-          max: 20
+          rowMax: 20,
+          max: 20,
         });
       }
 
@@ -106,20 +107,59 @@ class Game {
     this.bulletVal = val;
 
     if (this.stage && this.stage.hud) {
-
-      if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'bullets')) {
-        this.stage.hud.createTextureBasedCounter('bullets', {
-          texture: 'hud/bullet/0.png',
+      if (!Object.prototype.hasOwnProperty.call(this.stage.hud, "bullets")) {
+        this.stage.hud.createTextureBasedCounter("bullets", {
+          texture: "hud/bullet/0.png",
           spritesheet: this.spritesheet,
           location: Stage.bulletStatusBoxLocation(),
           max: 80,
-          rowMax: 20
+          rowMax: 20,
         });
       }
 
       this.stage.hud.bullets = val;
     }
+  }
 
+  /**
+   * score - getter
+   * @returns {Number}
+   */
+  get unifiedBalance() {
+    return this.balanceVal ? this.balanceVal : 0;
+  }
+
+  /**
+   * score - setter
+   * Setter for the score property of the game. Also in charge of updating the HUD. In the event
+   * the HUD doesn't know about displaying the score, the property and a corresponding text box
+   * will be created in HUD.
+   * @param {Number} val Score value to set
+   */
+  set unifiedBalance(val) {
+    this.balanceVal = val;
+
+    if (this.stage && this.stage.hud) {
+      if (
+        !Object.prototype.hasOwnProperty.call(this.stage.hud, "unifiedBalance")
+      ) {
+        this.stage.hud.createTextBox("unifiedBalance", {
+          style: {
+            fontFamily: "Arial",
+            fontSize: "18px",
+            align: "left",
+            fill: "white",
+          },
+          location: Stage.unifiedBalanceBoxLocation(),
+          anchor: {
+            x: 1,
+            y: 0,
+          },
+        });
+      }
+
+      this.stage.hud.unifiedBalance = `${val} USDT`;
+    }
   }
 
   /**
@@ -141,26 +181,24 @@ class Game {
     this.scoreVal = val;
 
     if (this.stage && this.stage.hud) {
-
-      if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'score')) {
-        this.stage.hud.createTextBox('score', {
+      if (!Object.prototype.hasOwnProperty.call(this.stage.hud, "score")) {
+        this.stage.hud.createTextBox("score", {
           style: {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            align: 'left',
-            fill: 'white'
+            fontFamily: "Arial",
+            fontSize: "18px",
+            align: "left",
+            fill: "white",
           },
           location: Stage.scoreBoxLocation(),
           anchor: {
             x: 1,
-            y: 0
-          }
+            y: 0,
+          },
         });
       }
 
       this.stage.hud.score = val;
     }
-
   }
 
   /**
@@ -182,27 +220,26 @@ class Game {
     this.waveVal = val;
 
     if (this.stage && this.stage.hud) {
-
-      if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'waveStatus')) {
-        this.stage.hud.createTextBox('waveStatus', {
+      if (!Object.prototype.hasOwnProperty.call(this.stage.hud, "waveStatus")) {
+        this.stage.hud.createTextBox("waveStatus", {
           style: {
-            fontFamily: 'Arial',
-            fontSize: '14px',
-            align: 'center',
-            fill: 'white'
+            fontFamily: "Arial",
+            fontSize: "14px",
+            align: "center",
+            fill: "white",
           },
           location: Stage.waveStatusBoxLocation(),
           anchor: {
             x: 1,
-            y: 1
-          }
+            y: 1,
+          },
         });
       }
 
       if (!isNaN(val) && val > 0) {
-        this.stage.hud.waveStatus = 'wave ' + val + ' of ' + this.level.waves;
+        this.stage.hud.waveStatus = "wave " + val + " of " + this.level.waves;
       } else {
-        this.stage.hud.waveStatus = '';
+        this.stage.hud.waveStatus = "";
       }
     }
   }
@@ -212,7 +249,7 @@ class Game {
    * @returns {String}
    */
   get gameStatus() {
-    return this.gameStatusVal ? this.gameStatusVal : '';
+    return this.gameStatusVal ? this.gameStatusVal : "";
   }
 
   /**
@@ -223,16 +260,15 @@ class Game {
     this.gameStatusVal = val;
 
     if (this.stage && this.stage.hud) {
-
-      if (!Object.prototype.hasOwnProperty.call(this.stage.hud,'gameStatus')) {
-        this.stage.hud.createTextBox('gameStatus', {
+      if (!Object.prototype.hasOwnProperty.call(this.stage.hud, "gameStatus")) {
+        this.stage.hud.createTextBox("gameStatus", {
           style: {
-            fontFamily: 'Arial',
-            fontSize: '40px',
-            align: 'left',
-            fill: 'white'
+            fontFamily: "Arial",
+            fontSize: "40px",
+            align: "left",
+            fill: "white",
           },
-          location: Stage.gameStatusBoxLocation()
+          location: Stage.gameStatusBoxLocation(),
         });
       }
 
@@ -249,107 +285,114 @@ class Game {
     document.body.appendChild(this.renderer.view);
 
     this.stage = new Stage({
-      spritesheet: this.spritesheet
+      spritesheet: this.spritesheet,
     });
 
     this.scaleToWindow();
     this.addLinkToLevelCreator();
-    this.addPauseLink();
+    // this.addPauseLink();
     this.addMuteLink();
     this.addFullscreenLink();
     this.bindEvents();
     this.startLevel();
     this.animate();
+    this.showUnifiedBalance();
+  }
 
+  async showUnifiedBalance() {
+    const balances = await getUnifiedBalances();
+    this.unifiedBalance = balances.find(
+      (b) => b.symbol.toUpperCase() === "USDT"
+    ).balance;
   }
 
   addFullscreenLink() {
-    this.stage.hud.createTextBox('fullscreenLink', {
+    this.stage.hud.createTextBox("fullscreenLink", {
       style: BOTTOM_LINK_STYLE,
       location: Stage.fullscreenLinkBoxLocation(),
       anchor: {
         x: 1,
-        y: 1
-      }
+        y: 1,
+      },
     });
-    this.stage.hud.fullscreenLink = 'fullscreen (f)';
+    this.stage.hud.fullscreenLink = "fullscreen (f)";
   }
   addMuteLink() {
-    this.stage.hud.createTextBox('muteLink', {
+    this.stage.hud.createTextBox("muteLink", {
       style: BOTTOM_LINK_STYLE,
       location: Stage.muteLinkBoxLocation(),
       anchor: {
         x: 1,
-        y: 1
-      }
+        y: 1,
+      },
     });
-    this.stage.hud.muteLink = 'mute (m)';
+    this.stage.hud.muteLink = "mute (m)";
   }
 
   addPauseLink() {
-    this.stage.hud.createTextBox('pauseLink', {
-      style: BOTTOM_LINK_STYLE,
-      location: Stage.pauseLinkBoxLocation(),
-      anchor: {
-        x: 1,
-        y: 1
-      }
-    });
-    this.stage.hud.pauseLink = 'pause (p)';
+    // this.stage.hud.createTextBox("pauseLink", {
+    //   style: BOTTOM_LINK_STYLE,
+    //   location: Stage.pauseLinkBoxLocation(),
+    //   anchor: {
+    //     x: 1,
+    //     y: 1,
+    //   },
+    // });
+    // this.stage.hud.pauseLink = "pause (p)";
   }
 
   addLinkToLevelCreator() {
-    this.stage.hud.createTextBox('levelCreatorLink', {
-      style: BOTTOM_LINK_STYLE,
-      location: Stage.levelCreatorLinkBoxLocation(),
-      anchor: {
-        x: 1,
-        y: 1
-      }
-    });
-    this.stage.hud.levelCreatorLink = 'level creator (c)';
+    // this.stage.hud.createTextBox("levelCreatorLink", {
+    //   style: BOTTOM_LINK_STYLE,
+    //   location: Stage.levelCreatorLinkBoxLocation(),
+    //   anchor: {
+    //     x: 1,
+    //     y: 1,
+    //   },
+    // });
+    // this.stage.hud.levelCreatorLink = "level creator (c)";
   }
 
   bindEvents() {
-    window.addEventListener('resize', this.scaleToWindow.bind(this));
+    window.addEventListener("resize", this.scaleToWindow.bind(this));
 
-    this.stage.on('pointerdown', this.handleClick.bind(this));
+    this.stage.on("pointerdown", this.handleClick.bind(this));
 
-    document.addEventListener('keypress', (event) => {
+    document.addEventListener("keypress", (event) => {
       event.stopImmediatePropagation();
 
-      if (event.key === 'p') {
-        this.pause();
+      if (event.key === "p") {
+        // this.pause();
       }
 
-      if (event.key === 'm') {
+      if (event.key === "m") {
         this.mute();
       }
 
-      if (event.key === 'c') {
-        this.openLevelCreator();
+      if (event.key === "c") {
+        // this.openLevelCreator();
       }
 
-      if (event.key === 'f') {
+      if (event.key === "f") {
         this.fullscreen();
       }
     });
 
-    document.addEventListener('fullscreenchange', () => {
+    document.addEventListener("fullscreenchange", () => {
       if (document.fullscreenElement) {
-        this.stage.hud.fullscreenLink = 'unfullscreen (f)';
+        this.stage.hud.fullscreenLink = "unfullscreen (f)";
       } else {
-        this.stage.hud.fullscreenLink = 'fullscreen (f)';
+        this.stage.hud.fullscreenLink = "fullscreen (f)";
       }
     });
 
-    sound.on('play', (soundId) => {
+    sound.on("play", (soundId) => {
       if (this.activeSounds.indexOf(soundId) === -1) {
         this.activeSounds.push(soundId);
       }
     });
-    sound.on('stop', this.removeActiveSound.bind(this));
-    sound.on('end', this.removeActiveSound.bind(this));
+    sound.on("stop", this.removeActiveSound.bind(this));
+    sound.on("end", this.removeActiveSound.bind(this));
   }
 
   fullscreen() {
@@ -358,7 +401,7 @@ class Game {
   }
 
   pause() {
-    this.stage.hud.pauseLink = this.paused ? 'pause (p)' : 'unpause (p)';
+    this.stage.hud.pauseLink = this.paused ? "pause (p)" : "unpause (p)";
     // SetTimeout, woof. Thing is here we need to leave enough animation frames for the HUD status to be updated
     // before pausing all rendering, otherwise the text update we need above won't be shown to the user.
     setTimeout(() => {
@@ -384,7 +427,7 @@ class Game {
   }
 
   mute() {
-    this.stage.hud.muteLink = this.muted ? 'mute (m)' : 'unmute (m)';
+    this.stage.hud.muteLink = this.muted ? "mute (m)" : "unmute (m)";
     this.muted = !this.muted;
     sound.mute(this.muted);
   }
@@ -402,20 +445,21 @@ class Game {
       this.level = this.levels[this.levelIndex];
     }
 
-    this.maxScore += this.level.waves * this.level.ducks * this.level.pointsPerDuck;
+    this.maxScore +=
+      this.level.waves * this.level.ducks * this.level.pointsPerDuck;
     this.ducksShot = 0;
     this.ducksMissed = 0;
     this.wave = 0;
 
     this.gameStatus = this.level.title;
     this.stage.preLevelAnimation().then(() => {
-      this.gameStatus = '';
+      this.gameStatus = "";
       this.startWave();
     });
   }
 
   startWave() {
-    this.quackingSoundId = sound.play('quacking');
+    this.quackingSoundId = sound.play("quacking");
     this.wave += 1;
     this.waveStartTime = Date.now();
     this.bullets = this.level.bullets;
@@ -454,7 +498,11 @@ class Game {
       return false;
     }
 
-    return this.isWaveTimeUp() || (this.outOfAmmo() && this.stage.ducksAlive()) || !this.stage.ducksActive();
+    return (
+      this.isWaveTimeUp() ||
+      (this.outOfAmmo() && this.stage.ducksAlive()) ||
+      !this.stage.ducksActive()
+    );
   }
 
   isWaveTimeUp() {
@@ -462,7 +510,7 @@ class Game {
   }
 
   waveElapsedTime() {
-    return ((Date.now() - this.waveStartTime) / 1000) - this.timePaused;
+    return (Date.now() - this.waveStartTime) / 1000 - this.timePaused;
   }
 
   outOfAmmo() {
@@ -490,14 +538,14 @@ class Game {
   }
 
   win() {
-    sound.play('champ');
-    this.gameStatus = 'You Win!';
+    sound.play("champ");
+    this.gameStatus = "You Win!";
     this.showReplay(this.getScoreMessage());
   }
 
   loss() {
-    sound.play('loserSound');
-    this.gameStatus = 'You Lose!';
+    sound.play("loserSound");
+    this.gameStatus = "You Lose!";
     this.showReplay(this.getScoreMessage());
   }
 
@@ -507,37 +555,37 @@ class Game {
     const percentage = (this.score / this.maxScore) * 100;
 
     if (percentage === 100) {
-      scoreMessage = 'Flawless victory.';
+      scoreMessage = "Flawless victory.";
     }
 
     if (percentage < 100) {
-      scoreMessage = 'Close to perfection.';
+      scoreMessage = "Close to perfection.";
     }
 
     if (percentage <= 95) {
-      scoreMessage = 'Truly impressive score.';
+      scoreMessage = "Truly impressive score.";
     }
 
     if (percentage <= 85) {
-      scoreMessage = 'Solid score.';
+      scoreMessage = "Solid score.";
     }
 
     if (percentage <= 75) {
-      scoreMessage = 'Participation award.';
+      scoreMessage = "Participation award.";
     }
 
     if (percentage <= 63) {
-      scoreMessage = 'Yikes.';
+      scoreMessage = "Yikes.";
     }
 
     return scoreMessage;
   }
 
   showReplay(replayText) {
-    this.stage.hud.createTextBox('replayButton', {
-      location: Stage.replayButtonLocation()
+    this.stage.hud.createTextBox("replayButton", {
+      location: Stage.replayButtonLocation(),
     });
-    this.stage.hud.replayButton = replayText + ' Play Again?';
+    this.stage.hud.replayButton = replayText + " Play Again?";
   }
 
   openLevelCreator() {
@@ -545,13 +593,13 @@ class Game {
     if (!this.paused) {
       this.pause();
     }
-    window.open('/creator.html', '_blank');
+    window.open("/creator.html", "_blank");
   }
 
   handleClick(event) {
     const clickPoint = {
       x: event.data.global.x,
-      y: event.data.global.y
+      y: event.data.global.y,
     };
 
     if (this.stage.clickedPauseLink(clickPoint)) {
@@ -574,8 +622,13 @@ class Game {
       return;
     }
 
-    if (!this.stage.hud.replayButton && !this.outOfAmmo() && !this.shouldWaveEnd() && !this.paused) {
-      sound.play('gunSound');
+    if (
+      !this.stage.hud.replayButton &&
+      !this.outOfAmmo() &&
+      !this.shouldWaveEnd() &&
+      !this.paused
+    ) {
+      sound.play("gunSound");
       this.bullets -= 1;
       this.updateScore(this.stage.shotsFired(clickPoint, this.level.radius));
       return;

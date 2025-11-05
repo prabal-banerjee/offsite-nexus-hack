@@ -1,8 +1,8 @@
-import {Point, Graphics, Container, Assets, AnimatedSprite} from 'pixi.js';
-import * as Utils from '../libs/utils';
-import Duck from './Duck';
-import Dog from './Dog';
-import Hud from './Hud';
+import { Point, Graphics, Container, Assets, AnimatedSprite } from "pixi.js";
+import * as Utils from "../libs/utils";
+import Duck from "./Duck";
+import Dog from "./Dog";
+import Hud from "./Hud";
 
 const delay = (fn, ms) => setTimeout(fn, ms);
 const some = (array, predicate) => array.some(predicate);
@@ -12,16 +12,17 @@ const MAX_X = 800;
 const MAX_Y = 600;
 
 const DUCK_POINTS = {
-  ORIGIN: new Point(MAX_X / 2, MAX_Y)
+  ORIGIN: new Point(MAX_X / 2, MAX_Y),
 };
 const DOG_POINTS = {
   DOWN: new Point(MAX_X / 2, MAX_Y),
   UP: new Point(MAX_X / 2, MAX_Y - 230),
   SNIFF_START: new Point(0, MAX_Y - 130),
-  SNIFF_END: new Point(MAX_X / 2, MAX_Y - 130)
+  SNIFF_END: new Point(MAX_X / 2, MAX_Y - 130),
 };
 const HUD_LOCATIONS = {
-  SCORE: new Point(MAX_X - 10, 10),
+  UNIFIED_BALANCE: new Point(MAX_X - 10, 10),
+  SCORE: new Point(MAX_X - 10, 40),
   WAVE_STATUS: new Point(MAX_X - 11, MAX_Y - 30),
   LEVEL_CREATOR_LINK: new Point(MAX_X - 11, MAX_Y - 10),
   FULL_SCREEN_LINK: new Point(MAX_X - 130, MAX_Y - 10),
@@ -31,19 +32,18 @@ const HUD_LOCATIONS = {
   REPLAY_BUTTON: new Point(MAX_X / 2, MAX_Y * 0.56),
   BULLET_STATUS: new Point(10, 10),
   DEAD_DUCK_STATUS: new Point(10, MAX_Y * 0.91),
-  MISSED_DUCK_STATUS: new Point(10, MAX_Y * 0.95)
+  MISSED_DUCK_STATUS: new Point(10, MAX_Y * 0.95),
 };
 
 const FLASH_MS = 60;
 const FLASH_SCREEN = new Graphics();
-FLASH_SCREEN.beginFill(0xFFFFFF);
+FLASH_SCREEN.beginFill(0xffffff);
 FLASH_SCREEN.drawRect(0, 0, MAX_X, MAX_Y);
 FLASH_SCREEN.endFill();
 FLASH_SCREEN.position.x = 0;
 FLASH_SCREEN.position.y = 0;
 
 class Stage extends Container {
-
   /**
    * Stage Constructor
    * Container for the game
@@ -54,12 +54,12 @@ class Stage extends Container {
     super();
     this.locked = false;
     this.spritesheet = opts.spritesheet;
-    this.eventMode = 'static';
+    this.eventMode = "static";
     this.ducks = [];
     this.dog = new Dog({
       spritesheet: opts.spritesheet,
       downPoint: DOG_POINTS.DOWN,
-      upPoint: DOG_POINTS.UP
+      upPoint: DOG_POINTS.UP,
     });
     this.dog.visible = false;
     this.flashScreen = FLASH_SCREEN;
@@ -72,6 +72,10 @@ class Stage extends Container {
 
   static scoreBoxLocation() {
     return HUD_LOCATIONS.SCORE;
+  }
+
+  static unifiedBalanceBoxLocation() {
+    return HUD_LOCATIONS.UNIFIED_BALANCE;
   }
 
   static waveStatusBoxLocation() {
@@ -145,11 +149,13 @@ class Stage extends Container {
   _setStage() {
     const spritesheetResource = Assets.get(this.spritesheet);
     const background = new AnimatedSprite([
-      spritesheetResource.textures['scene/back/0.png']
+      spritesheetResource.textures["scene/back/0.png"],
     ]);
     background.position.set(0, 0);
 
-    const tree = new AnimatedSprite([spritesheetResource.textures['scene/tree/0.png']]);
+    const tree = new AnimatedSprite([
+      spritesheetResource.textures["scene/tree/0.png"],
+    ]);
     tree.position.set(100, 237);
 
     this.addChild(tree);
@@ -173,14 +179,14 @@ class Stage extends Container {
 
       const sniffOpts = {
         startPoint: DOG_POINTS.SNIFF_START,
-        endPoint: DOG_POINTS.SNIFF_END
+        endPoint: DOG_POINTS.SNIFF_END,
       };
 
       const findOpts = {
         onComplete: () => {
           this.setChildIndex(this.dog, 0);
           resolve();
-        }
+        },
       };
 
       this.dog.sniff(sniffOpts).find(findOpts);
@@ -195,19 +201,19 @@ class Stage extends Container {
    */
   addDucks(numDucks, speed) {
     for (let i = 0; i < numDucks; i++) {
-      const duckColor = i % 2 === 0 ? 'red' : 'black';
+      const duckColor = i % 2 === 0 ? "red" : "black";
 
       // Al was here.
       const newDuck = new Duck({
         spritesheet: this.spritesheet,
         colorProfile: duckColor,
         maxX: MAX_X,
-        maxY: MAX_Y
+        maxY: MAX_Y,
       });
       newDuck.position.set(DUCK_POINTS.ORIGIN.x, DUCK_POINTS.ORIGIN.y);
       this.addChildAt(newDuck, 0);
       newDuck.randomFlight({
-        speed
+        speed,
       });
 
       this.ducks.push(newDuck);
@@ -232,7 +238,13 @@ class Stage extends Container {
     let ducksShot = 0;
     for (let i = 0; i < this.ducks.length; i++) {
       const duck = this.ducks[i];
-      if (duck.alive && Utils.pointDistance(duck.position, this.getScaledClickLocation(clickPoint)) < radius) {
+      if (
+        duck.alive &&
+        Utils.pointDistance(
+          duck.position,
+          this.getScaledClickLocation(clickPoint)
+        ) < radius
+      ) {
         ducksShot++;
         duck.shot();
         duck.timeline.add(() => {
@@ -247,39 +259,85 @@ class Stage extends Container {
 
   clickedReplay(clickPoint) {
     // this link is in the middle of the page, general radius search is sufficient here
-    return Utils.pointDistance(this.getScaledClickLocation(clickPoint), HUD_LOCATIONS.REPLAY_BUTTON) < 200;
+    return (
+      Utils.pointDistance(
+        this.getScaledClickLocation(clickPoint),
+        HUD_LOCATIONS.REPLAY_BUTTON
+      ) < 200
+    );
   }
 
   clickedLevelCreatorLink(clickPoint) {
     const scaledClickPoint = this.getScaledClickLocation(clickPoint);
 
     // with this link we have a very narrow hit box, radius search is not appropriate
-    return inRange(scaledClickPoint.x, HUD_LOCATIONS.LEVEL_CREATOR_LINK.x-110, HUD_LOCATIONS.LEVEL_CREATOR_LINK.x) &&
-      inRange(scaledClickPoint.y, HUD_LOCATIONS.LEVEL_CREATOR_LINK.y-30, HUD_LOCATIONS.LEVEL_CREATOR_LINK.y+10);
+    return (
+      inRange(
+        scaledClickPoint.x,
+        HUD_LOCATIONS.LEVEL_CREATOR_LINK.x - 110,
+        HUD_LOCATIONS.LEVEL_CREATOR_LINK.x
+      ) &&
+      inRange(
+        scaledClickPoint.y,
+        HUD_LOCATIONS.LEVEL_CREATOR_LINK.y - 30,
+        HUD_LOCATIONS.LEVEL_CREATOR_LINK.y + 10
+      )
+    );
   }
 
   clickedPauseLink(clickPoint) {
-    const scaledClickPoint = this.getScaledClickLocation(clickPoint);
-    return inRange(scaledClickPoint.x, HUD_LOCATIONS.PAUSE_LINK.x-110, HUD_LOCATIONS.PAUSE_LINK.x) &&
-      inRange(scaledClickPoint.y, HUD_LOCATIONS.PAUSE_LINK.y-30, HUD_LOCATIONS.PAUSE_LINK.y+10);
+    console.log("clickedPauseLink", clickPoint);
+    // const scaledClickPoint = this.getScaledClickLocation(clickPoint);
+    // return (
+    //   inRange(
+    //     scaledClickPoint.x,
+    //     HUD_LOCATIONS.PAUSE_LINK.x - 110,
+    //     HUD_LOCATIONS.PAUSE_LINK.x
+    //   ) &&
+    //   inRange(
+    //     scaledClickPoint.y,
+    //     HUD_LOCATIONS.PAUSE_LINK.y - 30,
+    //     HUD_LOCATIONS.PAUSE_LINK.y + 10
+    //   )
+    // );
   }
 
   clickedFullscreenLink(clickPoint) {
     const scaledClickPoint = this.getScaledClickLocation(clickPoint);
-    return inRange(scaledClickPoint.x, HUD_LOCATIONS.FULL_SCREEN_LINK.x-110, HUD_LOCATIONS.FULL_SCREEN_LINK.x) &&
-      inRange(scaledClickPoint.y, HUD_LOCATIONS.FULL_SCREEN_LINK.y-30, HUD_LOCATIONS.FULL_SCREEN_LINK.y+10);
+    return (
+      inRange(
+        scaledClickPoint.x,
+        HUD_LOCATIONS.FULL_SCREEN_LINK.x - 110,
+        HUD_LOCATIONS.FULL_SCREEN_LINK.x
+      ) &&
+      inRange(
+        scaledClickPoint.y,
+        HUD_LOCATIONS.FULL_SCREEN_LINK.y - 30,
+        HUD_LOCATIONS.FULL_SCREEN_LINK.y + 10
+      )
+    );
   }
 
   clickedMuteLink(clickPoint) {
     const scaledClickPoint = this.getScaledClickLocation(clickPoint);
-    return inRange(scaledClickPoint.x, HUD_LOCATIONS.MUTE_LINK.x-110, HUD_LOCATIONS.MUTE_LINK.x) &&
-      inRange(scaledClickPoint.y, HUD_LOCATIONS.MUTE_LINK.y-30, HUD_LOCATIONS.MUTE_LINK.y+10);
+    return (
+      inRange(
+        scaledClickPoint.x,
+        HUD_LOCATIONS.MUTE_LINK.x - 110,
+        HUD_LOCATIONS.MUTE_LINK.x
+      ) &&
+      inRange(
+        scaledClickPoint.y,
+        HUD_LOCATIONS.MUTE_LINK.y - 30,
+        HUD_LOCATIONS.MUTE_LINK.y + 10
+      )
+    );
   }
 
   getScaledClickLocation(clickPoint) {
     return {
       x: clickPoint.x / this.scale.x,
-      y: clickPoint.y / this.scale.y
+      y: clickPoint.y / this.scale.y,
     };
   }
   /**
@@ -296,17 +354,21 @@ class Stage extends Container {
     for (let i = 0; i < this.ducks.length; i++) {
       const duck = this.ducks[i];
       if (duck.alive) {
-        duckPromises.push(new Promise((resolve) => {
-          duck.stopAndClearTimeline();
-          duck.flyTo({
-            point: new Point(MAX_X / 2, -500),
-            onComplete: resolve
-          });
-        }));
+        duckPromises.push(
+          new Promise((resolve) => {
+            duck.stopAndClearTimeline();
+            duck.flyTo({
+              point: new Point(MAX_X / 2, -500),
+              onComplete: resolve,
+            });
+          })
+        );
       }
     }
 
-    return Promise.all(duckPromises).then(this.cleanUpDucks.bind(this)).then(this.unlock.bind(this));
+    return Promise.all(duckPromises)
+      .then(this.cleanUpDucks.bind(this))
+      .then(this.unlock.bind(this));
   }
 
   /**
