@@ -78,15 +78,24 @@ class Duck extends Character {
       minY: 0,
       maxY: this.options.maxY || Infinity,
       randomFlightDelta: this.options.randomFilghtDelta || RANDOM_FLIGHT_DELTA,
-      speed: 1
+      speed: 1,
+      // optional seeded rng with nextFloat()
+      rng: null
     }, opts);
 
     let distance, destination;
     do {
-      destination = {
-        x: _random(options.minX, options.maxX),
-        y: _random(options.minY, options.maxY)
-      };
+      if (options.rng) {
+        destination = {
+          x: Math.floor(options.rng.range(options.minX, options.maxX)),
+          y: Math.floor(options.rng.range(options.minY, options.maxY))
+        };
+      } else {
+        destination = {
+          x: _random(options.minX, options.maxX),
+          y: _random(options.minY, options.maxY)
+        };
+      }
       distance = Utils.pointDistance(this.position, destination);
     } while (distance < options.randomFlightDelta);
 
@@ -112,13 +121,16 @@ class Duck extends Character {
       point: this.position,
       speed: this.speed,
       onStart: _noop,
-      onComplete: _noop
+      onComplete: _noop,
+      // optional seeded rng from randomFlight
+      rng: null
     }, opts);
 
     this.speed = options.speed;
 
     const direction = Utils.directionOfTravel(this.position, options.point);
-    const tweenSeconds = (this.flightAnimationMs + _random(0, 300)) / 1000;
+    const jitterMs = options.rng ? Math.floor(options.rng.range(0, 300)) : _random(0, 300);
+    const tweenSeconds = (this.flightAnimationMs + jitterMs) / 1000;
 
     this.timeline.to(this.position, tweenSeconds, {
       x: options.point.x,
