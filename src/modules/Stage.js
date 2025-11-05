@@ -3,10 +3,12 @@ import BPromise from 'bluebird';
 import {some as _some} from 'lodash/collection';
 import {delay as _delay} from 'lodash/function';
 import {inRange as _inRange} from 'lodash/number';
+import {TweenMax, Power2} from 'gsap';
 import Utils from '../libs/utils';
 import Duck from './Duck';
 import Dog from './Dog';
 import Hud from './Hud';
+import duckTypesData from '../data/duckTypes.json';
 
 const MAX_X = 800;
 const MAX_Y = 600;
@@ -62,6 +64,8 @@ class Stage extends Container {
       'ARB-AAVE-USDT', 'ETH-PENDLE-USDC', 'ARB-AAVE-USDT'
     ]);
     this.shotLogoCounts = new Map();
+    this.hitDucksThisRound = [];
+    this.duckTypes = duckTypesData.duckTypes;
     this.dog = new Dog({
       spritesheet: opts.spritesheet,
       downPoint: DOG_POINTS.DOWN,
@@ -203,37 +207,73 @@ class Stage extends Container {
    * @param {Number} speed - Value from 0 (slow) to 10 (fast) that determines how fast the ducks will fly
    */
   addDucks(numDucks, speed) {
-    for (let i = 0; i < numDucks; i++) {
-      const duckColor = i % 2 === 0 ? 'red' : 'black';
+    // eslint-disable-next-line no-console
+    console.log(`🦆 Adding ${numDucks} ducks with speed ${speed}`);
+    
+    // CRITICAL: Clean up any existing ducks first to prevent accumulation
+    if (this.ducks.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`⚠️ Found ${this.ducks.length} existing ducks, cleaning up first`);
+      this.cleanUpDucks();
+    }
+    
+    // Clear previous round's hit duck tracking
+    this.hitDucksThisRound = [];
 
-      // Al was here.
+    const duckColorKeys = Object.keys(this.duckTypes);
+    // eslint-disable-next-line no-console
+    console.log(`📝 Available duck types: ${duckColorKeys.join(', ')}`);
+
+    for (let i = 0; i < numDucks; i++) {
+      // Randomly select duck type from available types
+      const randomColorKey = duckColorKeys[Math.floor(Math.random() * duckColorKeys.length)];
+      const duckTypeInfo = this.duckTypes[randomColorKey];
+
+      // Generate random multiplier within the duck type's range
+      const minMult = duckTypeInfo.multiplierRange[0];
+      const maxMult = duckTypeInfo.multiplierRange[1];
+      const multiplier = Math.floor(Math.random() * (maxMult - minMult + 1)) + minMult;
+
       const newDuck = new Duck({
         spritesheet: this.spritesheet,
-        colorProfile: duckColor,
+        colorProfile: duckTypeInfo.color,
         maxX: MAX_X,
         maxY: MAX_Y
       });
+
+      // Add duck type properties
+      newDuck.duckType = duckTypeInfo.name;
+      newDuck.duckColor = duckTypeInfo.color;
+      newDuck.scoreMultiplier = multiplier;
+      newDuck.baseSpeed = duckTypeInfo.baseSpeed;
+
       newDuck.position.set(DUCK_POINTS.ORIGIN.x, DUCK_POINTS.ORIGIN.y);
-      // assign a random logo tag from the Set and overlay a label above the duck
+
+      // assign a random logo tag from the Set (but don't create visual label for performance)
       const namesArr = Array.from(this.logoNames);
       newDuck.logoTag = namesArr[Math.floor(Math.random() * namesArr.length)];
-      const label = new Text(newDuck.logoTag, {
-        fontFamily: 'Arial',
-        fontSize: 12,
-        fill: 'white',
-        stroke: '#000000',
-        strokeThickness: 3
-      });
-      label.anchor.set(0.5, 1);
-      label.position.set(0, -28);
-      newDuck.addChild(label);
+      
+      // Removed all visual indicators for maximum performance
+
       this.addChildAt(newDuck, 0);
+
+      // Adjust speed based on duck type (black/avail ducks fly faster)
+      const adjustedSpeed = speed * newDuck.baseSpeed;
       newDuck.randomFlight({
-        speed
+        speed: adjustedSpeed
       });
 
       this.ducks.push(newDuck);
+      
+      // Reduced logging for performance - only log occasionally
+      if (i === 0) {
+        // eslint-disable-next-line no-console
+        console.log(`➕ Creating ${numDucks} ducks: first one is ${duckTypeInfo.name} (${duckTypeInfo.color}) ${multiplier}x speed ${adjustedSpeed}`);
+      }
     }
+    
+    // eslint-disable-next-line no-console
+    console.log(`✅ Created ${numDucks} ducks. Total ducks in stage: ${this.ducks.length}`);
   }
 
   /**
@@ -252,25 +292,64 @@ class Stage extends Container {
     }, FLASH_MS);
 
     let ducksShot = 0;
+    const hitDucks = [];
+
+    // Pre-calculate scaled click location once for performance
+    const scaledClickPoint = this.getScaledClickLocation(clickPoint);
+    
     for (let i = 0; i < this.ducks.length; i++) {
       const duck = this.ducks[i];
-      if (duck.alive && Utils.pointDistance(duck.position, this.getScaledClickLocation(clickPoint)) < radius) {
+      if (duck.alive && Utils.pointDistance(duck.position, scaledClickPoint) < radius) {
         ducksShot++;
         duck.shot();
+
+        // Track hit duck for round summary
+        hitDucks.push({
+          type: duck.duckType,
+          color: duck.duckColor,
+          multiplier: duck.scoreMultiplier,
+          logoTag: duck.logoTag
+        });
+
         if (duck.logoTag) {
           const prev = this.shotLogoCounts.get(duck.logoTag) || 0;
           this.shotLogoCounts.set(duck.logoTag, prev + 1);
-          // eslint-disable-next-line no-console
-          console.log('Shot logo counts:', Object.fromEntries(this.shotLogoCounts));
         }
-        duck.timeline.add(() => {
-          if (!this.isLocked()) {
-            this.dog.retrieve();
-          }
-        });
+        
+        // Break early after hitting first duck for better performance
+        break;
       }
     }
-    return ducksShot;
+
+    // Add hit ducks to round tracking
+    this.hitDucksThisRound.push(...hitDucks);
+
+    return { ducksShot, hitDucks };
+  }
+
+  showHitFeedback(duck) {
+    // Create floating text showing what was hit
+    const hitText = new Text(`${duck.duckType} ${duck.scoreMultiplier}x!`, {
+      fontFamily: 'Arial',
+      fontSize: 16,
+      fill: duck.scoreMultiplier === 10 ? '#FFD700' : duck.scoreMultiplier === 0 ? '#FF0000' : '#00FF00',
+      stroke: '#000000',
+      strokeThickness: 2
+    });
+    
+    hitText.anchor.set(0.5, 0.5);
+    hitText.position.set(duck.position.x, duck.position.y - 30);
+    this.addChild(hitText);
+    
+    // Animate the feedback text
+    TweenMax.to(hitText, 0.5, {
+      y: hitText.position.y - 50,
+      alpha: 0,
+      ease: Power2.easeOut,
+      onComplete: () => {
+        this.removeChild(hitText);
+      }
+    });
   }
 
   clickedReplay(clickPoint) {
@@ -342,10 +421,19 @@ class Stage extends Container {
    * Helper that removes all ducks from the container and object
    */
   cleanUpDucks() {
+    // eslint-disable-next-line no-console
+    console.log(`🧹 Cleaning up ${this.ducks.length} ducks`);
+    
+    // Use optimized cleanup - destroy all ducks in one pass
     for (let i = 0; i < this.ducks.length; i++) {
-      this.removeChild(this.ducks[i]);
+      this.ducks[i].destroy();
     }
     this.ducks = [];
+    // Clear hit tracking to prevent memory buildup
+    this.hitDucksThisRound = [];
+    
+    // eslint-disable-next-line no-console
+    console.log(`✅ Cleanup complete. Ducks remaining: ${this.ducks.length}`);
   }
 
   /**
@@ -355,9 +443,11 @@ class Stage extends Container {
    * @returns {Boolean}
    */
   ducksAlive() {
-    return _some(this.ducks, (duck) => {
-      return duck.alive;
-    });
+    // Optimized: use native for loop instead of lodash for better performance
+    for (let i = 0; i < this.ducks.length; i++) {
+      if (this.ducks[i].alive) return true;
+    }
+    return false;
   }
 
   /**
@@ -367,9 +457,11 @@ class Stage extends Container {
    * @returns {Boolean}
    */
   ducksActive() {
-    return _some(this.ducks, (duck) => {
-      return duck.isActive();
-    });
+    // Optimized: use native for loop instead of lodash for better performance
+    for (let i = 0; i < this.ducks.length; i++) {
+      if (this.ducks[i].isActive()) return true;
+    }
+    return false;
   }
 
   /**

@@ -71,6 +71,10 @@ class Character extends extras.AnimatedSprite {
    * @returns {Boolean}
    */
   isActive() {
+    // Safety check: if timeline is null (destroyed character), it's not active
+    if (!this.timeline) {
+      return false;
+    }
     return this.timeline.isActive();
   }
 
